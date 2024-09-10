@@ -1,6 +1,13 @@
 // controllers/usuarioController.js
 const Usuario = require('../models/usuarioModel');
 const Counter = require('../models/counterModel');
+const bcrypt = require('bcrypt');
+
+// Función para ajustar la hora a UTC-6
+const ajustarZonaHoraria = (fechaUTC) => {
+  const diferenciaHoraria = -6; // Ajuste para UTC-6
+  return new Date(fechaUTC.getTime() + diferenciaHoraria * 60 * 60 * 1000);
+};
 
 // Obtener todos los usuarios
 exports.getUsuarios = async (req, res) => {
@@ -51,8 +58,8 @@ exports.createUsuario = async (req, res) => {
       rol,
       infoContacto,
       puesto,
-      fechaRegistro: new Date(),
-      ultimoInicioSesion: new Date()
+      fechaRegistro: ajustarZonaHoraria(new Date()), // Ajuste a UTC-6
+      ultimoInicioSesion: ajustarZonaHoraria(new Date()) // Ajuste a UTC-6
     });
 
     await nuevoUsuario.save();
@@ -93,14 +100,13 @@ exports.updateUsuario = async (req, res) => {
     usuario.correo = correo || usuario.correo;
     if (contrasena) {
       // Solo encriptar si la contraseña ha sido cambiada
-      const bcrypt = require('bcrypt');
       const salt = await bcrypt.genSalt(10);
       usuario.contrasena = await bcrypt.hash(contrasena, salt);
     }
     usuario.rol = rol || usuario.rol;
     usuario.infoContacto = infoContacto || usuario.infoContacto;
     usuario.puesto = puesto || usuario.puesto;
-    usuario.ultimoInicioSesion = ultimoInicioSesion || usuario.ultimoInicioSesion;
+    usuario.ultimoInicioSesion = ultimoInicioSesion ? ajustarZonaHoraria(new Date(ultimoInicioSesion)) : usuario.ultimoInicioSesion;
 
     // Guardar los cambios
     const usuarioActualizado = await usuario.save();
