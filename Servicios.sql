@@ -22,15 +22,16 @@ CREATE TABLE servicios (
 
 CREATE TABLE citas (
     idCita INT AUTO_INCREMENT PRIMARY KEY,
-    idUsuario INT NOT NULL,  -- Usuario que solicita la cita (cliente)
+    idcliente INT NOT NULL,  -- Usuario que solicita la cita (cliente)
+    idEmpleado int not null,
     idServicio INT NOT NULL,
     fechaCita DATETIME NOT NULL,
     estadoCita ENUM('pendiente', 'confirmada', 'cancelada') NOT NULL DEFAULT 'pendiente',
     fechaRegistroCita TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (idServicio) REFERENCES servicios(idServ)
+	FOREIGN KEY (idServicio) REFERENCES servicios(idServ)
 );
 
 
-
-
-select * from Servicios
+select * from productos;
+select * from citas;
+select * from servicios

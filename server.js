@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const dotenv = require('dotenv');
 const connectDB = require('./config/mongo');  // Conexión a MongoDB
@@ -6,6 +5,7 @@ const servicioRoutes = require('./routes/servicioRoutes');
 const productoRoutes = require('./routes/productoRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');  // Rutas para MongoDB
 const sesionRoutes = require('./routes/sesionRoutes');    // Rutas para sesiones
+const citaRoutes = require('./routes/citaRoutes');        // Rutas para citas
 
 // Cargar variables de entorno
 dotenv.config();
@@ -26,7 +26,10 @@ app.use('/productos', productoRoutes);
 app.use('/usuarios', usuarioRoutes);
 
 // Rutas para Sesiones (MongoDB)
-app.use('/sesiones', sesionRoutes);  // Asegúrate de agregar esto
+app.use('/sesiones', sesionRoutes);
+
+// Rutas para Citas (MySQL + MongoDB)
+app.use('/citas', citaRoutes);  // Asegúrate de agregar las rutas de citas
 
 // Iniciar el servidor
 const port = process.env.PORT || 3000;

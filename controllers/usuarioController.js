@@ -43,6 +43,12 @@ exports.createUsuario = async (req, res) => {
   }
 
   try {
+    // Verificar si el nombreUsuario o correo ya existen
+    const usuarioExistente = await Usuario.findOne({ $or: [{ nombreUsuario }, { correo }] });
+    if (usuarioExistente) {
+      return res.status(400).json({ error: 'El nombre de usuario o correo ya existe' });
+    }
+
     // Incrementar el contador para idMySQL
     const counter = await Counter.findByIdAndUpdate(
       { _id: 'idMySQL' },
@@ -68,9 +74,10 @@ exports.createUsuario = async (req, res) => {
     if (err.code === 11000) {
       return res.status(400).json({ error: 'El nombre de usuario o correo ya existe' });
     }
-    res.status(500).json({ error: 'Error al crear el usuario' });
+    res.status(500).json({ error: 'Error al crear el usuario', details: err.message });
   }
 };
+
 
 // Actualizar un usuario por idMySQL
 exports.updateUsuario = async (req, res) => {
@@ -79,12 +86,15 @@ exports.updateUsuario = async (req, res) => {
 
   try {
     // Verificar si el nombreUsuario o correo ya existen en otro usuario
-    const usuarioConMismoNombre = await Usuario.findOne({ nombreUsuario, idMySQL: { $ne: idMySQL } });
+    const [usuarioConMismoNombre, usuarioConMismoCorreo] = await Promise.all([
+      Usuario.findOne({ nombreUsuario, idMySQL: { $ne: idMySQL } }),
+      Usuario.findOne({ correo, idMySQL: { $ne: idMySQL } })
+    ]);
+
     if (usuarioConMismoNombre) {
       return res.status(400).json({ error: 'El nombre de usuario ya existe' });
     }
 
-    const usuarioConMismoCorreo = await Usuario.findOne({ correo, idMySQL: { $ne: idMySQL } });
     if (usuarioConMismoCorreo) {
       return res.status(400).json({ error: 'El correo ya existe' });
     }
@@ -98,11 +108,13 @@ exports.updateUsuario = async (req, res) => {
     // Actualizar los campos
     usuario.nombreUsuario = nombreUsuario || usuario.nombreUsuario;
     usuario.correo = correo || usuario.correo;
+    
     if (contrasena) {
       // Solo encriptar si la contraseña ha sido cambiada
       const salt = await bcrypt.genSalt(10);
       usuario.contrasena = await bcrypt.hash(contrasena, salt);
     }
+
     usuario.rol = rol || usuario.rol;
     usuario.infoContacto = infoContacto || usuario.infoContacto;
     usuario.puesto = puesto || usuario.puesto;
@@ -113,7 +125,7 @@ exports.updateUsuario = async (req, res) => {
     res.json(usuarioActualizado);
 
   } catch (err) {
-    res.status(500).json({ error: 'Error al actualizar el usuario' });
+    res.status(500).json({ error: 'Error al actualizar el usuario', details: err.message });
   }
 };
 
