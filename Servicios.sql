@@ -1,15 +1,15 @@
-create database SistemCitas;
-use SistemCitas;
+
+use sql3731923;
 
 CREATE TABLE productos (
-    idProd INT AUTO_INCREMENT PRIMARY KEY,
-    nombreProd VARCHAR(100) NOT NULL,
-    descripcionProd TEXT,
-    precioProd DECIMAL(10, 2) NOT NULL,
-    inventarioProd INT NOT NULL,
-    fechaRegistroProd TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fechaActualizacionProd TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  idProd INT AUTO_INCREMENT PRIMARY KEY,
+  nombreProd VARCHAR(100) NOT NULL,
+  descripcionProd TEXT,
+  precioProd DECIMAL(10, 2) NOT NULL,
+  inventarioProd INT NOT NULL,
+  fechaProd TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE servicios (
     idServ INT AUTO_INCREMENT PRIMARY KEY,
