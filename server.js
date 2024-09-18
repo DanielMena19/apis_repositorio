@@ -1,5 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const cors = require('cors'); // Importar cors
 const connectDB = require('./config/mongo');  // Conexión a MongoDB
 const servicioRoutes = require('./routes/servicioRoutes');
 const productoRoutes = require('./routes/productoRoutes');
@@ -15,6 +16,9 @@ connectDB();
 
 const app = express();
 app.use(express.json());
+
+// Usar CORS en toda la aplicación
+app.use(cors());  // Aquí agregamos cors
 
 // Rutas para Servicios (MySQL)
 app.use('/servicios', servicioRoutes);
@@ -36,3 +40,4 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Servidor corriendo en el puerto ${port}`);
 });
+
