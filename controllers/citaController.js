@@ -5,7 +5,7 @@ const Usuario = require('../models/usuarioModel');  // Modelo de MongoDB para lo
 exports.getCitas = async (req, res) => {
   const sql = `
     SELECT c.idCita, c.fechaCita, c.estadoCita, 
-    s.nombreServ, c.idcliente, c.idEmpleado, 
+    s.nombreServ, c.nombrecliente, c.idEmpleado, 
     c.idServicio, c.fechaRegistroCita
     FROM citas c 
     JOIN servicios s ON c.idServicio = s.idServ
@@ -17,8 +17,7 @@ exports.getCitas = async (req, res) => {
 
     const citasConNombres = await Promise.all(result.map(async (cita) => {
       try {
-        // Buscar los nombres del cliente y empleado desde MongoDB
-        const cliente = await Usuario.findOne({ idMySQL: cita.idcliente, rol: 'cliente' });
+        // Buscar el nombre del empleado desde MongoDB
         const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'staff' });
 
         const fecha = cita.fechaCita.toISOString().split('T')[0];
@@ -29,13 +28,13 @@ exports.getCitas = async (req, res) => {
           fecha,
           hora,
           estadoCita: cita.estadoCita,
-          clienteNombre: cliente ? cliente.nombreUsuario : 'Cliente no encontrado',
+          clienteNombre: cita.nombrecliente,  // Tomamos el nombre directamente de MySQL
           empleadoNombre: empleado ? empleado.nombreUsuario : 'Empleado no encontrado',
           servicioNombre: cita.nombreServ,
           fechaRegistroCita: cita.fechaRegistroCita
         };
       } catch (err) {
-        console.error("Error obteniendo cliente o empleado", err);
+        console.error("Error obteniendo empleado", err);
         throw err;
       }
     }));
@@ -48,13 +47,13 @@ exports.getCitas = async (req, res) => {
   }
 };
 
-// Obtener una cita por ID con nombres de cliente, empleado y servicio
+// Obtener una cita por ID con nombre de cliente, empleado y servicio
 exports.getCitaById = async (req, res) => {
   const { idCita } = req.params;
 
   const sql = `
     SELECT c.idCita, c.fechaCita, c.estadoCita, 
-    s.nombreServ, c.idcliente, c.idEmpleado, 
+    s.nombreServ, c.nombrecliente, c.idEmpleado, 
     c.idServicio, c.fechaRegistroCita
     FROM citas c 
     JOIN servicios s ON c.idServicio = s.idServ
@@ -70,7 +69,6 @@ exports.getCitaById = async (req, res) => {
     }
 
     const cita = result[0];
-    const cliente = await Usuario.findOne({ idMySQL: cita.idcliente, rol: 'cliente' });
     const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'staff' });
 
     const fecha = cita.fechaCita.toISOString().split('T')[0];
@@ -81,7 +79,7 @@ exports.getCitaById = async (req, res) => {
       fecha,
       hora,
       estadoCita: cita.estadoCita,
-      clienteNombre: cliente ? cliente.nombreUsuario : 'Cliente no encontrado',
+      clienteNombre: cita.nombrecliente,  // Tomamos el nombre directamente de MySQL
       empleadoNombre: empleado ? empleado.nombreUsuario : 'Empleado no encontrado',
       servicioNombre: cita.nombreServ,
       fechaRegistroCita: cita.fechaRegistroCita
@@ -96,16 +94,10 @@ exports.getCitaById = async (req, res) => {
 
 // Crear una nueva cita
 exports.createCita = async (req, res) => {
-  const { idcliente, idEmpleado, idServicio, fecha, hora } = req.body;
+  const { nombrecliente, idEmpleado, idServicio, fecha, hora } = req.body;
   const fechaCita = new Date(`${fecha} ${hora}`);  // Unir fecha y hora en un solo objeto de fecha
 
   try {
-    // Verificar si el cliente existe en MongoDB con el rol adecuado
-    const cliente = await Usuario.findOne({ idMySQL: idcliente, rol: 'cliente' });
-    if (!cliente) {
-      return res.status(400).json({ error: 'El cliente no existe o no tiene el rol adecuado' });
-    }
-
     // Verificar si el empleado existe en MongoDB con el rol adecuado
     const empleado = await Usuario.findOne({ idMySQL: idEmpleado, rol: 'staff' });
     if (!empleado) {
@@ -123,10 +115,11 @@ exports.createCita = async (req, res) => {
 
     const duracionServicio = result[0].duracionServ;
 
-    // Verificar la disponibilidad del empleado (sin empalmes de citas)
+    // Verificar la disponibilidad del empleado (sin empalmes de citas activas)
     const disponibilidadSQL = `
       SELECT * FROM citas 
       WHERE idEmpleado = ? 
+      AND estadoCita != 'cancelada'  -- Ignorar citas canceladas
       AND (
         (fechaCita <= ? AND DATE_ADD(fechaCita, INTERVAL ? MINUTE) > ?) OR
         (fechaCita >= ? AND fechaCita < DATE_ADD(?, INTERVAL ? MINUTE))
@@ -143,8 +136,8 @@ exports.createCita = async (req, res) => {
     }
 
     // Insertar la nueva cita en MySQL
-    const sql = 'INSERT INTO citas (idcliente, idEmpleado, idServicio, fechaCita) VALUES (?, ?, ?, ?)';
-    const [insertResult] = await db.execute(sql, [idcliente, idEmpleado, idServicio, fechaCita]);
+    const sql = 'INSERT INTO citas (nombrecliente, idEmpleado, idServicio, fechaCita) VALUES (?, ?, ?, ?)';
+    const [insertResult] = await db.execute(sql, [nombrecliente, idEmpleado, idServicio, fechaCita]);
 
     res.status(201).json({ message: 'Cita creada', idCita: insertResult.insertId });
     db.end();  // Cerrar la conexión
@@ -154,10 +147,11 @@ exports.createCita = async (req, res) => {
   }
 };
 
+
 // Actualizar los datos de una cita
 exports.updateCita = async (req, res) => {
   const { idCita } = req.params;
-  const { idEmpleado, idServicio, fecha, hora, estadoCita } = req.body;
+  const { nombrecliente, idEmpleado, idServicio, fecha, hora, estadoCita } = req.body;
 
   try {
     const db = await connectDB();
@@ -173,6 +167,7 @@ exports.updateCita = async (req, res) => {
     const citaActual = result[0];
 
     // Si los valores no se proporcionan en la solicitud, usamos los valores actuales
+    const nuevoNombreCliente = nombrecliente || citaActual.nombrecliente;
     const nuevoIdEmpleado = idEmpleado || citaActual.idEmpleado;
     const nuevoIdServicio = idServicio || citaActual.idServicio;
 
@@ -181,15 +176,12 @@ exports.updateCita = async (req, res) => {
     if (fecha && hora) {
       nuevaFechaCita = new Date(`${fecha} ${hora}`);
     } else if (fecha) {
-      // Si se envía solo la fecha, mantenemos la hora original
       const horaActual = citaActual.fechaCita.toTimeString().split(' ')[0];  // Obtener hora actual
       nuevaFechaCita = new Date(`${fecha} ${horaActual}`);
     } else if (hora) {
-      // Si se envía solo la hora, mantenemos la fecha original
       const fechaActual = citaActual.fechaCita.toISOString().split('T')[0];  // Obtener fecha actual
       nuevaFechaCita = new Date(`${fechaActual} ${hora}`);
     } else {
-      // Si no se envía ni fecha ni hora, mantenemos la fecha y hora actuales
       nuevaFechaCita = citaActual.fechaCita;
     }
 
@@ -205,15 +197,16 @@ exports.updateCita = async (req, res) => {
 
     const duracionServicio = servicioResult[0].duracionServ;
 
-    // Verificar la disponibilidad del empleado (sin empalmes de citas)
+    // Verificar la disponibilidad del empleado (sin empalmes de citas activas)
     const disponibilidadSQL = `
       SELECT * FROM citas 
       WHERE idEmpleado = ? 
+      AND estadoCita != 'cancelada'  -- Ignorar citas canceladas
       AND (
         (fechaCita <= ? AND DATE_ADD(fechaCita, INTERVAL ? MINUTE) > ?) OR
         (fechaCita >= ? AND fechaCita < DATE_ADD(?, INTERVAL ? MINUTE))
       )
-      AND idCita != ?
+      AND idCita != ?  -- Excluir la cita actual de la verificación
     `;
     const [disponibilidad] = await db.execute(disponibilidadSQL, [
       nuevoIdEmpleado, 
@@ -229,10 +222,10 @@ exports.updateCita = async (req, res) => {
     // Actualizar la cita en MySQL
     const sqlUpdate = `
       UPDATE citas 
-      SET idEmpleado = ?, idServicio = ?, fechaCita = ?, estadoCita = ?
+      SET nombrecliente = ?, idEmpleado = ?, idServicio = ?, fechaCita = ?, estadoCita = ?
       WHERE idCita = ?
     `;
-    const [updateResult] = await db.execute(sqlUpdate, [nuevoIdEmpleado, nuevoIdServicio, nuevaFechaCita, nuevoEstadoCita, idCita]);
+    const [updateResult] = await db.execute(sqlUpdate, [nuevoNombreCliente, nuevoIdEmpleado, nuevoIdServicio, nuevaFechaCita, nuevoEstadoCita, idCita]);
 
     if (updateResult.affectedRows === 0) {
       return res.status(404).json({ error: 'Cita no encontrada' });
@@ -242,33 +235,6 @@ exports.updateCita = async (req, res) => {
     db.end();  // Cerrar la conexión
   } catch (err) {
     console.error('Error al actualizar la cita:', err);
-    res.status(500).json({ error: 'Error interno del servidor', details: err.message });
-  }
-};
-
-// Actualizar solo el estado de la cita
-exports.updateEstadoCita = async (req, res) => {
-  const { idCita } = req.params;
-  const { estadoCita } = req.body;
-
-  if (!['pendiente', 'confirmada', 'cancelada'].includes(estadoCita)) {
-    return res.status(400).json({ error: 'Estado inválido' });
-  }
-
-  try {
-    const db = await connectDB();
-
-    const sql = 'UPDATE citas SET estadoCita = ? WHERE idCita = ?';
-    const [result] = await db.execute(sql, [estadoCita, idCita]);
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'Cita no encontrada' });
-    }
-
-    res.json({ message: 'Estado de la cita actualizado' });
-    db.end();  // Cerrar la conexión
-  } catch (err) {
-    console.error('Error al actualizar el estado de la cita:', err);
     res.status(500).json({ error: 'Error interno del servidor', details: err.message });
   }
 };

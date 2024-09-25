@@ -22,7 +22,7 @@ CREATE TABLE servicios (
 
 CREATE TABLE citas (
     idCita INT AUTO_INCREMENT PRIMARY KEY,
-    idcliente INT NOT NULL,  -- Usuario que solicita la cita (cliente)
+    nombrecliente varchar(50),  -- Usuario que solicita la cita (cliente)
     idEmpleado int not null,
     idServicio INT NOT NULL,
     fechaCita DATETIME NOT NULL,
@@ -30,6 +30,9 @@ CREATE TABLE citas (
     fechaRegistroCita TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	FOREIGN KEY (idServicio) REFERENCES servicios(idServ)
 );
+
+
+
 
 
 select * from productos;

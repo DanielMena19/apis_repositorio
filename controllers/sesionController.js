@@ -1,79 +1,55 @@
-const Usuario = require('../models/usuarioModel');
-const Sesion = require('../models/sesionModel');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const Usuario = require('../models/usuarioModel'); // Usar tu modelo de usuario
 
-// Función para ajustar la hora a UTC-6
-const ajustarZonaHoraria = (fechaUTC) => {
-  const diferenciaHoraria = -6; // Ajuste para UTC-6
-  return new Date(fechaUTC.getTime() + diferenciaHoraria * 60 * 60 * 1000);
-};
-
-// Controlador para iniciar sesión
-exports.iniciarSesion = async (req, res) => {
+// Controlador de login
+exports.login = async (req, res) => {
   const { correo, contrasena } = req.body;
 
+  // Validación básica de datos
+  if (!correo || !contrasena) {
+    return res.status(400).json({ error: 'Por favor, proporciona correo y contraseña.' });
+  }
+
   try {
-    // Buscar el usuario en la base de datos
+    // Buscar el usuario por correo en la base de datos
     const usuario = await Usuario.findOne({ correo });
+
+    // Si el usuario no existe, enviar un error 404
     if (!usuario) {
-      return res.status(400).json({ error: 'Usuario no encontrado' });
+      return res.status(404).json({ error: 'Alguno de los datos es incorrecto' });
     }
 
-    // Verificar la contraseña
+    // Verificar la contraseña comparando la proporcionada con la encriptada
     const esValida = await bcrypt.compare(contrasena, usuario.contrasena);
     if (!esValida) {
-      return res.status(400).json({ error: 'Contraseña incorrecta' });
+      return res.status(401).json({ error: 'Alguno de los datos es incorrecto' });
     }
 
-    // Crear una nueva sesión
-    const nuevaSesion = new Sesion({
-      idUsuario: usuario.idMySQL,
-      inicioSesion: ajustarZonaHoraria(new Date()), // Ajuste a UTC-6
-      direccionIP: req.ip,
-      informacion_dispositivo: {
-        sistemaOperativo: req.headers['user-agent'],
-        navegador: "Chrome",
-        tipoDispositivo: "Escritorio"
-      }
+    // Actualizar la fecha del último inicio de sesión
+    usuario.ultimoInicioSesion = new Date();
+    await usuario.save();
+
+    // Opcional: Generar un token JWT
+    const token = jwt.sign(
+      { id: usuario._id, rol: usuario.rol }, // Puedes agregar más datos si es necesario
+      'clave_secreta', // Debes usar una clave secreta más segura y almacenarla en .env
+      { expiresIn: '1h' } // El token expira en 1 hora
+    );
+
+    // Responder con el token y los datos del usuario
+    res.status(200).json({
+      message: 'Login exitoso',
+      token, // Enviar el token JWT
+      usuario: {
+        nombre: usuario.nombreUsuario,
+        correo: usuario.correo,
+        rol: usuario.rol,
+        ultimoInicioSesion: usuario.ultimoInicioSesion,
+      },
     });
-
-    // Guardar la sesión en la base de datos
-    await nuevaSesion.save();
-
-    // Responder con los detalles de la sesión
-    res.json({
-      message: 'Sesión iniciada',
-      idSesion: nuevaSesion._id,
-      idUsuario: usuario.idMySQL,
-      inicioSesion: nuevaSesion.inicioSesion
-    });
-
   } catch (err) {
-    console.error('Error al iniciar sesión:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-};
-
-// Controlador para cerrar sesión
-exports.cerrarSesion = async (req, res) => {
-  const { idSesion } = req.body;
-
-  try {
-    // Buscar la sesión en la base de datos
-    const sesion = await Sesion.findById(idSesion);
-    if (!sesion) {
-      return res.status(404).json({ error: 'Sesión no encontrada' });
-    }
-
-    // Ajustar la hora de cierre de sesión
-    sesion.finSesion = ajustarZonaHoraria(new Date()); // Ajuste a UTC-6
-    await sesion.save();
-
-    // Responder con los detalles del cierre de sesión
-    res.json({ message: 'Sesión cerrada', finSesion: sesion.finSesion });
-
-  } catch (err) {
-    console.error('Error al cerrar sesión:', err);
+    console.error('Error en el login:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

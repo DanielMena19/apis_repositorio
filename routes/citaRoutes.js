@@ -7,6 +7,6 @@ router.get('/', citaController.getCitas);  // Obtener todas las citas
 router.get('/:idCita', citaController.getCitaById);  // Obtener una cita por ID
 router.post('/', citaController.createCita);  // Crear una nueva cita
 router.put('/:idCita', citaController.updateCita);  // Editar los datos de la cita
-router.put('/:idCita/estado', citaController.updateEstadoCita);  // Actualizar solo el estado de la cita
+
 
 module.exports = router;
