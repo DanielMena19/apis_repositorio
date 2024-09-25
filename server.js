@@ -18,7 +18,10 @@ const app = express();
 app.use(express.json());
 
 // Usar CORS en toda la aplicación
-app.use(cors());  // Aquí agregamos cors
+app.use(cors({
+  origin: 'http://localhost:8080',  // Permitir solicitudes desde el frontend
+  credentials: true
+}));
 
 // Rutas para Servicios (MySQL)
 app.use('/servicios', servicioRoutes);
@@ -33,11 +36,10 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/sesiones', sesionRoutes);
 
 // Rutas para Citas (MySQL + MongoDB)
-app.use('/citas', citaRoutes);  // Asegúrate de agregar las rutas de citas
+app.use('/citas', citaRoutes);
 
 // Iniciar el servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Servidor corriendo en el puerto ${port}`);
+  console.log(`Servidor API corriendo en el puerto ${port}`);
 });
-
