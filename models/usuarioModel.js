@@ -8,7 +8,7 @@ const usuarioSchema = new mongoose.Schema({
   nombreUsuario: { type: String, required: true, unique: true },
   correo: { type: String, required: true, unique: true },
   contrasena: { type: String, required: true },
-  rol: { type: String, enum: ['admin', 'staff', 'cliente'], required: true },
+  rol: { type: String, enum: ['Admin', 'Staff'], required: true },
   infoContacto: String,
   puesto: String,
   fechaRegistro: { type: Date, default: Date.now },
