@@ -23,18 +23,18 @@ exports.login = async (req, res) => {
     // Verificar la contraseña comparando la proporcionada con la encriptada
     const esValida = await bcrypt.compare(contrasena, usuario.contrasena);
     if (!esValida) {
-      return res.status(401).json({ error: 'Alguno de los datos es incorrecto' });
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
     // Actualizar la fecha del último inicio de sesión
     usuario.ultimoInicioSesion = new Date();
     await usuario.save();
 
-    // Opcional: Generar un token JWT
+    // Generar un token JWT
     const token = jwt.sign(
-      { id: usuario._id, rol: usuario.rol }, // Puedes agregar más datos si es necesario
-      'clave_secreta', // Debes usar una clave secreta más segura y almacenarla en .env
-      { expiresIn: '1h' } // El token expira en 1 hora
+      { id: usuario._id, rol: usuario.rol }, // Token incluye el id de MongoDB y rol
+      process.env.JWT_SECRET || 'clave_secreta', // Usar clave secreta desde .env
+      { expiresIn: '1h' }
     );
 
     // Responder con el token y los datos del usuario

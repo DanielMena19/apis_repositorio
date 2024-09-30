@@ -1,4 +1,3 @@
-// controllers/usuarioController.js
 const Usuario = require('../models/usuarioModel');
 const Counter = require('../models/counterModel');
 const bcrypt = require('bcrypt');
@@ -78,29 +77,14 @@ exports.createUsuario = async (req, res) => {
   }
 };
 
-
 // Actualizar un usuario por idMySQL
 exports.updateUsuario = async (req, res) => {
   const { idMySQL } = req.params;  // Obtener el idMySQL desde los parámetros de la URL
   const { nombreUsuario, correo, contrasena, rol, infoContacto, puesto, ultimoInicioSesion } = req.body;
 
   try {
-    // Verificar si el nombreUsuario o correo ya existen en otro usuario
-    const [usuarioConMismoNombre, usuarioConMismoCorreo] = await Promise.all([
-      Usuario.findOne({ nombreUsuario, idMySQL: { $ne: idMySQL } }),
-      Usuario.findOne({ correo, idMySQL: { $ne: idMySQL } })
-    ]);
-
-    if (usuarioConMismoNombre) {
-      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
-    }
-
-    if (usuarioConMismoCorreo) {
-      return res.status(400).json({ error: 'El correo ya existe' });
-    }
-
-    // Buscar el usuario por idMySQL
     const usuario = await Usuario.findOne({ idMySQL });
+
     if (!usuario) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
@@ -109,18 +93,17 @@ exports.updateUsuario = async (req, res) => {
     usuario.nombreUsuario = nombreUsuario || usuario.nombreUsuario;
     usuario.correo = correo || usuario.correo;
     
+    // Aquí simplemente asignamos la nueva contraseña. El hook pre('save') la encriptará automáticamente si ha sido modificada
     if (contrasena) {
-      // Solo encriptar si la contraseña ha sido cambiada
-      const salt = await bcrypt.genSalt(10);
-      usuario.contrasena = await bcrypt.hash(contrasena, salt);
+      usuario.contrasena = contrasena;
     }
 
     usuario.rol = rol || usuario.rol;
     usuario.infoContacto = infoContacto || usuario.infoContacto;
     usuario.puesto = puesto || usuario.puesto;
-    usuario.ultimoInicioSesion = ultimoInicioSesion ? ajustarZonaHoraria(new Date(ultimoInicioSesion)) : usuario.ultimoInicioSesion;
+    usuario.ultimoInicioSesion = ultimoInicioSesion ? new Date(ultimoInicioSesion) : usuario.ultimoInicioSesion;
 
-    // Guardar los cambios
+    // Guardar los cambios (esto activará el hook pre('save') para encriptar la contraseña si ha sido cambiada)
     const usuarioActualizado = await usuario.save();
     res.json(usuarioActualizado);
 

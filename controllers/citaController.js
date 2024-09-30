@@ -18,7 +18,11 @@ exports.getCitas = async (req, res) => {
     const citasConNombres = await Promise.all(result.map(async (cita) => {
       try {
         // Buscar el nombre del empleado desde MongoDB
-        const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'staff' });
+        const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'Staff' });
+
+        if (!empleado) {
+          console.warn(`Empleado con idMySQL ${cita.idEmpleado} no encontrado o no tiene rol 'Staff'`);
+        }
 
         const fecha = cita.fechaCita.toISOString().split('T')[0];
         const hora = cita.fechaCita.toTimeString().split(' ')[0];
@@ -34,7 +38,7 @@ exports.getCitas = async (req, res) => {
           fechaRegistroCita: cita.fechaRegistroCita
         };
       } catch (err) {
-        console.error("Error obteniendo empleado", err);
+        console.error(`Error obteniendo empleado para la cita con idCita ${cita.idCita}`, err);
         throw err;
       }
     }));
@@ -64,12 +68,16 @@ exports.getCitaById = async (req, res) => {
     const db = await connectDB();  // Conectar a la base de datos
     const [result] = await db.execute(sql, [idCita]);
 
-    if (result.length === 0) {
+    if (result.length == 0) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
     const cita = result[0];
-    const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'staff' });
+    const empleado = await Usuario.findOne({ idMySQL: cita.idEmpleado, rol: 'Staff' });
+
+    if (!empleado) {
+      console.warn(`Empleado con idMySQL ${cita.idEmpleado} no encontrado o no tiene rol 'Staff'`);
+    }
 
     const fecha = cita.fechaCita.toISOString().split('T')[0];
     const hora = cita.fechaCita.toTimeString().split(' ')[0];
@@ -79,7 +87,7 @@ exports.getCitaById = async (req, res) => {
       fecha,
       hora,
       estadoCita: cita.estadoCita,
-      clienteNombre: cita.nombrecliente,  // Tomamos el nombre directamente de MySQL
+      clienteNombre: cita.nombrecliente,
       empleadoNombre: empleado ? empleado.nombreUsuario : 'Empleado no encontrado',
       servicioNombre: cita.nombreServ,
       fechaRegistroCita: cita.fechaRegistroCita
@@ -99,7 +107,7 @@ exports.createCita = async (req, res) => {
 
   try {
     // Verificar si el empleado existe en MongoDB con el rol adecuado
-    const empleado = await Usuario.findOne({ idMySQL: idEmpleado, rol: 'staff' });
+    const empleado = await Usuario.findOne({ idMySQL: idEmpleado, rol: 'Staff' });
     if (!empleado) {
       return res.status(400).json({ error: 'El empleado no existe o no tiene el rol adecuado' });
     }
@@ -109,7 +117,7 @@ exports.createCita = async (req, res) => {
     const sqlDuracion = 'SELECT duracionServ FROM servicios WHERE idServ = ?';
     const [result] = await db.execute(sqlDuracion, [idServicio]);
 
-    if (result.length === 0) {
+    if (result.length == 0) {
       return res.status(400).json({ error: 'Servicio no encontrado' });
     }
 
@@ -147,7 +155,6 @@ exports.createCita = async (req, res) => {
   }
 };
 
-
 // Actualizar los datos de una cita
 exports.updateCita = async (req, res) => {
   const { idCita } = req.params;
@@ -160,7 +167,7 @@ exports.updateCita = async (req, res) => {
     const sqlSelect = 'SELECT * FROM citas WHERE idCita = ?';
     const [result] = await db.execute(sqlSelect, [idCita]);
 
-    if (result.length === 0) {
+    if (result.length == 0) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
@@ -191,7 +198,7 @@ exports.updateCita = async (req, res) => {
     const sqlDuracion = 'SELECT duracionServ FROM servicios WHERE idServ = ?';
     const [servicioResult] = await db.execute(sqlDuracion, [nuevoIdServicio]);
 
-    if (servicioResult.length === 0) {
+    if (servicioResult.length == 0) {
       return res.status(400).json({ error: 'Servicio no encontrado' });
     }
 
@@ -227,7 +234,7 @@ exports.updateCita = async (req, res) => {
     `;
     const [updateResult] = await db.execute(sqlUpdate, [nuevoNombreCliente, nuevoIdEmpleado, nuevoIdServicio, nuevaFechaCita, nuevoEstadoCita, idCita]);
 
-    if (updateResult.affectedRows === 0) {
+    if (updateResult.affectedRows == 0) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
